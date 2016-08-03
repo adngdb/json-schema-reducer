@@ -17,14 +17,14 @@ def make_reduced_dict(schema, original):
 
 def _make_reduced_dict(schema, original):
     new_dict = {}
-    assert schema['type'] == 'object'
+    if schema['type'] != 'object':
+        raise ValidationError('JSON Schema needs to define an object')
     required = schema.get('required', [])
     for key, prop in schema['properties'].items():
         if prop.get('type') == 'object':
-            # Need to recurse,
-            # but only if it exists.
+            # Need to recurse, but only if it exists.
             if key in original:
-                new_dict[key] = make_reduced_dict(
+                new_dict[key] = _make_reduced_dict(
                     prop,
                     original[key]
                 )
@@ -33,19 +33,21 @@ def _make_reduced_dict(schema, original):
                 try:
                     value = original[key]
                 except KeyError:
-                    raise ValidationError(key)
+                    raise ValidationError('{} is required'.format(key))
                 new_dict[key] = value
     return new_dict
 
 
 def dictify(thing):
-    if not isinstance(thing, dict):
-        if hasattr(thing, 'read') and callable(thing.read):
-            thing = json.load(thing)
-        elif os.path.isfile(thing):
-            thing = json.load(open(thing))
-        else:
-            thing = json.loads(thing)
+    if isinstance(thing, dict):
+        return thing
+
+    if hasattr(thing, 'read') and callable(thing.read):
+        thing = json.load(thing)
+    elif os.path.isfile(thing):
+        thing = json.load(open(thing))
+    else:
+        thing = json.loads(thing)
     assert isinstance(thing, dict)
     return thing
 
@@ -56,12 +58,11 @@ def cli(args):
             __file__
         ))
         return 0
-    schema = json.load(open(args[0]))
-    json_file = args[1]
+
     print(json.dumps(
         make_reduced_dict(
-            schema,
-            json.load(open(json_file)),
+            args[0],
+            args[1],
         ),
         indent=4,
         sort_keys=True,

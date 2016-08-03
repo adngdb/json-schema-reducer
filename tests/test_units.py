@@ -6,7 +6,7 @@ except ImportError:
 
 import pytest
 
-from json_schema_reducer import dictify, _make_reduced_dict, ValidationError
+from json_schema_reducer import ValidationError, _make_reduced_dict, dictify
 
 
 def test_dictify():
@@ -121,4 +121,29 @@ def test_required_error():
             schema,
             sample
         )
-    assert 'bar' in str(excinfo.value)
+    assert 'bar is required' in str(excinfo.value)
+
+
+def test_invalid_schema():
+    schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'type': 'array',
+        'items': {
+            'foo': {
+                'type': 'string',
+            },
+            'bar': {
+                'type': 'string',
+            },
+        }
+    }
+    sample = {
+        'foo': 'Hej!',
+        # missing 'bar'
+    }
+    with pytest.raises(ValidationError) as excinfo:
+        _make_reduced_dict(
+            schema,
+            sample
+        )
+    assert 'Schema needs to define an object' in str(excinfo.value)
